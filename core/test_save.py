@@ -78,6 +78,8 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
         # new games
         envs = [config.new_game(seed=i, save_video=save_video, save_path=save_path, test=True, final_test=final_test,
                               video_callable=lambda episode_id: True, uid=i) for i in range(test_episodes)]
+
+
         max_episode_steps = envs[0].get_max_episode_steps()
         if use_pb:
             pb = tqdm(np.arange(max_episode_steps), leave=True)
@@ -106,9 +108,22 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
             else:
                 stack_obs = [game_history.step_obs() for game_history in game_histories]
                 stack_obs = torch.from_numpy(np.array(stack_obs)).to(device)
+            
+            #TODO: Set hooks
 
+            #Call initial inference
             with autocast():
                 network_output = model.initial_inference(stack_obs.float())
+
+            #TODO: Manually call projection network
+
+            #TODO: Store activations into chunks
+
+            #TODO: Save chunks to disk if larger than desired chunk size (1 GB?)
+
+            #TODO: Remove hooks
+
+
             hidden_state_roots = network_output.hidden_state
             reward_hidden_roots = network_output.reward_hidden
             value_prefix_pool = network_output.value_prefix
@@ -151,5 +166,6 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
 
         for env in envs:
             env.close()
+
 
     return ep_ori_rewards, step, save_path
