@@ -48,6 +48,25 @@ def _test(config, shared_storage):
 
         time.sleep(30)
 
+class SaveFeatures():
+     features=None
+     def __init__(self, m): self.hook = m.register_forward_hook(self.hook_fn)
+     def hook_fn(self, module, input, output): self.features = ((output.cpu()).data).numpy()
+     def remove(self): self.hook.remove()
+
+def get_features_from_layer(layer):
+  activated_features = SaveFeatures(layer)
+  return activated_features
+
+#attaches a target layer of the model and file folder to the saved activations
+class target_layer():
+    def __init__(self, layer, folder):
+        self.layer = layer
+        self.folder = folder
+        #store activations as a list of pytorch tensors, then when it's big, save to disk and increment the chunk number
+        self.activations = []
+        self.chunk_number = 0
+
 
 def test(config, model, counter, test_episodes, device, render, save_video=False, final_test=False, use_pb=False):
     """evaluation test
@@ -93,6 +112,11 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
         step = 0
         ep_ori_rewards = np.zeros(test_episodes)
         ep_clip_rewards = np.zeros(test_episodes)
+
+        #TODO: Initialize target_layers for all the layers we want to hook
+        hooked_layers = set()
+        hooked_layers.add(target_layer(model.projection[6],"proj/6"))
+
         # loop
         while not dones.all():
             if render:
@@ -109,7 +133,14 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
                 stack_obs = [game_history.step_obs() for game_history in game_histories]
                 stack_obs = torch.from_numpy(np.array(stack_obs)).to(device)
             
-            #TODO: Set hooks
+            #TODO: Set hooks (currently just testing minimal hook)
+            activated_features = {}
+            features = {}
+            def get_activation(name):
+                def hook(model, input, output):
+                    features[name] = output.detach().cpu()
+                return hook
+            h = model.projection[6].register_forward_hook(get_activation("proj"))
 
             #Call initial inference
             with autocast():
@@ -120,10 +151,11 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
 
             #TODO: Store activations into chunks
 
+
             #TODO: Save chunks to disk if larger than desired chunk size (1 GB?)
 
             #TODO: Remove hooks
-
+            h.remove()
 
             hidden_state_roots = network_output.hidden_state
             reward_hidden_roots = network_output.reward_hidden
@@ -168,5 +200,8 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
         for env in envs:
             env.close()
 
+        #TODO: clean up chunks as needed
+
 
     return ep_ori_rewards, step, save_path
+
