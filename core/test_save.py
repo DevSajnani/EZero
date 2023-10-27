@@ -115,7 +115,8 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
             with autocast():
                 network_output = model.initial_inference(stack_obs.float())
 
-            #TODO: Manually call projection network
+            #Manually call projection network
+            projection_output = model.project(network_output.hidden_state, with_grad=False)
 
             #TODO: Store activations into chunks
 
