@@ -133,29 +133,31 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
                 stack_obs = [game_history.step_obs() for game_history in game_histories]
                 stack_obs = torch.from_numpy(np.array(stack_obs)).to(device)
             
-            #TODO: Set hooks (currently just testing minimal hook)
-            activated_features = {}
-            features = {}
-            def get_activation(name):
-                def hook(model, input, output):
-                    features[name] = output.detach().cpu()
-                return hook
-            h = model.projection[6].register_forward_hook(get_activation("proj"))
+            #TODO: Set hooks
+            activated_features = get_features_from_layer(model.dynamics_network)
+            activated_features_2 = get_features_from_layer(model.prediction_network)
+
 
             #Call initial inference
             with autocast():
                 network_output = model.initial_inference(stack_obs.float())
 
             #Manually call projection network
-            projection_output = model.project(network_output.hidden_state, with_grad=False)
+            proj = model.project(network_output.hidden_state, with_grad=False)
 
             #TODO: Store activations into chunks
-
+            dynamics_features = activated_features.features 
+            prediction_features = activated_features_2.features 
 
             #TODO: Save chunks to disk if larger than desired chunk size (1 GB?)
+            #dynamics_feature_list.append(dynamics_features)
+            #prediction_features_list.append(prediction_features) 
+            # if someCondition:  (when a condition is met call the helper method to store dynamics and prediction features to disk)
+            #     helper(dynamics_feature_list, prediction_features_list)
 
             #TODO: Remove hooks
-            h.remove()
+            activated_features.remove()
+            activated_features_2.remove() #maybe it would be better if they're removed at the end after the test loop is complete? 
 
             hidden_state_roots = network_output.hidden_state
             reward_hidden_roots = network_output.reward_hidden
