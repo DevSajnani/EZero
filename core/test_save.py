@@ -135,11 +135,14 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
             prediction_features = activated_features_2.features 
 
             #TODO: Save chunks to disk if larger than desired chunk size (1 GB?)
-
+            #dynamics_feature_list.append(dynamics_features)
+            #prediction_features_list.append(prediction_features) 
+            # if someCondition:  (when a condition is met call the helper method to store dynamics and prediction features to disk)
+            #     helper(dynamics_feature_list, prediction_features_list)
 
             #TODO: Remove hooks
             activated_features.remove()
-            activated_features_2.remove()
+            activated_features_2.remove() #maybe it would be better if they're removed at the end after the test loop is complete? 
 
             hidden_state_roots = network_output.hidden_state
             reward_hidden_roots = network_output.reward_hidden
