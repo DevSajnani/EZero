@@ -48,6 +48,15 @@ def _test(config, shared_storage):
 
         time.sleep(30)
 
+class SaveFeatures():
+     features=None
+     def __init__(self, m): self.hook = m.register_forward_hook(self.hook_fn)
+     def hook_fn(self, module, input, output): self.features = ((output.cpu()).data).numpy()
+     def remove(self): self.hook.remove()
+
+def get_features_from_layer(layer):
+  activated_features = SaveFeatures(layer)
+  return activated_features
 
 def test(config, model, counter, test_episodes, device, render, save_video=False, final_test=False, use_pb=False):
     """evaluation test
@@ -110,19 +119,24 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
                 stack_obs = torch.from_numpy(np.array(stack_obs)).to(device)
             
             #TODO: Set hooks
+            activated_features = get_features_from_layer(#add some layer here)
+
 
             #Call initial inference
             with autocast():
                 network_output = model.initial_inference(stack_obs.float())
 
             #TODO: Manually call projection network
+            
 
             #TODO: Store activations into chunks
 
+
             #TODO: Save chunks to disk if larger than desired chunk size (1 GB?)
 
-            #TODO: Remove hooks
 
+            #TODO: Remove hooks
+            activated_features.remove()
 
             hidden_state_roots = network_output.hidden_state
             reward_hidden_roots = network_output.reward_hidden
