@@ -49,14 +49,12 @@ def _test(config, shared_storage):
         time.sleep(30)
 
 class SaveFeatures():
-     features=None
-     def __init__(self, m): self.hook = m.register_forward_hook(self.hook_fn)
-     def hook_fn(self, module, input, output): self.features = ((output.cpu()).data).numpy()
+     activations=None
+     def __init__(self, layer, activations):
+         self.hook = layer.register_forward_hook(self.hook_fn)
+         self.activations = activations
+     def hook_fn(self, module, input, output): self.activations.append(output.detach().cpu())
      def remove(self): self.hook.remove()
-
-def get_features_from_layer(layer):
-  activated_features = SaveFeatures(layer)
-  return activated_features
 
 #attaches a target layer of the model and file folder to the saved activations
 class target_layer():
@@ -134,9 +132,9 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
                 stack_obs = torch.from_numpy(np.array(stack_obs)).to(device)
             
             #TODO: Set hooks
-            activated_features = get_features_from_layer(model.dynamics_network)
-            activated_features_2 = get_features_from_layer(model.prediction_network)
-
+            hooks = set()
+            for l in hooked_layers:
+                hooks.add(SaveFeatures(l.layer, l.activations))
 
             #Call initial inference
             with autocast():
@@ -145,19 +143,14 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
             #Manually call projection network
             proj = model.project(network_output.hidden_state, with_grad=False)
 
-            #TODO: Store activations into chunks
-            dynamics_features = activated_features.features 
-            prediction_features = activated_features_2.features 
-
             #TODO: Save chunks to disk if larger than desired chunk size (1 GB?)
-            #dynamics_feature_list.append(dynamics_features)
-            #prediction_features_list.append(prediction_features) 
-            # if someCondition:  (when a condition is met call the helper method to store dynamics and prediction features to disk)
-            #     helper(dynamics_feature_list, prediction_features_list)
+            for l in hooked_layers:
+                if l.activations.__sizeof__() > 10**9:
+                    helper_saver_and_eraser_method(l) #TODO: make this thing
 
             #TODO: Remove hooks
-            activated_features.remove()
-            activated_features_2.remove() #maybe it would be better if they're removed at the end after the test loop is complete? 
+            for h in hooks:
+                h.remove()
 
             hidden_state_roots = network_output.hidden_state
             reward_hidden_roots = network_output.reward_hidden
@@ -202,7 +195,7 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
         for env in envs:
             env.close()
 
-        #TODO: clean up chunks as needed
+        #TODO: clean up chunks as needed - e.g. saving the tail end of the data
 
 
     return ep_ori_rewards, step, save_path
