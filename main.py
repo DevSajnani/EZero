@@ -8,6 +8,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from core.test import test
+from core.test_save import test_save
 from core.train import train
 from core.utils import init_logger, make_results_dir, set_seed
 if __name__ == '__main__':
@@ -53,6 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('--load_model', action='store_true', default=False, help='choose to load model')
     parser.add_argument('--model_path', type=str, default='./results/test_model.p', help='load model path')
     parser.add_argument('--object_store_memory', type=int, default=150 * 1024 * 1024 * 1024, help='object store memory')
+    parser.add_argument('--save_activations', action='store_true', default=False, help='use test_save to save activations to disk')
 
     # Process arguments
     args = parser.parse_args()
@@ -121,7 +123,10 @@ if __name__ == '__main__':
 
             model = game_config.get_uniform_network().to(device)
             model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
-            test_score, _, test_path = test(game_config, model, 0, args.test_episodes, device=device, render=args.render, save_video=args.save_video, final_test=True, use_pb=True)
+            if args.save_activations:
+                test_score, _, test_path = test_save(game_config, model, 0, args.test_episodes, device=device, render=args.render, save_video=args.save_video, final_test=True, use_pb=True)
+            else:
+                test_score, _, test_path = test(game_config, model, 0, args.test_episodes, device=device, render=args.render, save_video=args.save_video, final_test=True, use_pb=True)
             mean_score = test_score.mean()
             std_score = test_score.std()
             logging.getLogger('test').info('Test Mean Score: {} (max: {}, min: {})'.format(mean_score, test_score.max(), test_score.min()))

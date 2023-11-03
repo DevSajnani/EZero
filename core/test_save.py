@@ -14,7 +14,7 @@ from core.utils import select_action, prepare_observation_lst
 
 
 @ray.remote(num_gpus=0.25)
-def _test(config, shared_storage):
+def _test_save(config, shared_storage):
     test_model = config.get_uniform_network()
     best_test_score = float('-inf')
     episodes = 0
@@ -28,7 +28,7 @@ def _test(config, shared_storage):
             test_model.set_weights(ray.get(shared_storage.get_weights.remote()))
             test_model.eval()
 
-            test_score, eval_steps, _ = test(config, test_model, counter, config.test_episodes, config.device, False, save_video=False)
+            test_score, eval_steps, _ = test_save(config, test_model, counter, config.test_episodes, config.device, False, save_video=False)
             mean_score = test_score.mean()
             std_score = test_score.std()
             print('Start evaluation at step {}.'.format(counter))
@@ -66,7 +66,18 @@ class target_layer():
         self.chunk_number = 0
 
 
-def test(config, model, counter, test_episodes, device, render, save_video=False, final_test=False, use_pb=False):
+def save_chunk(targ_lay):
+    #save stored activations to disk at folder/chunk number.pt
+    dataset = torch.cat(targ_lay.activations, dim=0).to('cpu')
+    os.makedirs(targ_lay.folder, exist_ok=True)
+    with open(targ_lay.folder+"/"+str(targ_lay.chunk_number)+".pt","wb") as f:
+        torch.save(dataset, f)
+    #wipe stored activations
+    targ_lay.activations = []
+    targ_lay.chunk_number += 1
+
+
+def test_save(config, model, counter, test_episodes, device, render, save_video=False, final_test=False, use_pb=False):
     """evaluation test
     Parameters
     ----------
@@ -111,7 +122,7 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
         ep_ori_rewards = np.zeros(test_episodes)
         ep_clip_rewards = np.zeros(test_episodes)
 
-        #TODO: Initialize target_layers for all the layers we want to hook
+        #TODO: Initialize target_layers for all the layers we want to hook, remove test prints
         hooked_layers = set()
         hooked_layers.add(target_layer(model.projection[6],"proj/6"))
 
@@ -131,25 +142,25 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
                 stack_obs = [game_history.step_obs() for game_history in game_histories]
                 stack_obs = torch.from_numpy(np.array(stack_obs)).to(device)
             
-            #TODO: Set hooks
-            hooks = set()
+            #Set hooks
+            temp_hooks = set()
             for l in hooked_layers:
-                hooks.add(SaveFeatures(l.layer, l.activations))
+                temp_hooks.add(SaveFeatures(l.layer, l.activations))
 
             #Call initial inference
             with autocast():
                 network_output = model.initial_inference(stack_obs.float())
 
             #Manually call projection network
-            proj = model.project(network_output.hidden_state, with_grad=False)
+            proj = model.project(torch.from_numpy(network_output.hidden_state).to(device), with_grad=False)
 
-            #TODO: Save chunks to disk if larger than desired chunk size (1 GB?)
+            #Save chunks to disk if larger than desired chunk size (1 GB?) TODO: reset chunk size
             for l in hooked_layers:
-                if l.activations.__sizeof__() > 10**9:
-                    helper_saver_and_eraser_method(l) #TODO: make this thing
+                if sum(map(lambda x : torch.numel(x)*4, l.activations)) > 10**6:
+                    save_chunk(l)
 
-            #TODO: Remove hooks
-            for h in hooks:
+            #Remove hooks
+            for h in temp_hooks:
                 h.remove()
 
             hidden_state_roots = network_output.hidden_state
@@ -186,16 +197,24 @@ def test(config, model, counter, test_episodes, device, render, save_video=False
                 ep_clip_rewards[i] += clip_reward
 
             step += 1
+
             if use_pb:
-                pb.set_description('{} In step {}, scores: {}(max: {}, min: {}) currently.'
+                total_saved = 0
+                for l in hooked_layers:
+                    total_saved += sum(map(lambda x : torch.numel(x)*4, l.activations))
+                    
+                pb.set_description('{}, trial {}, mean score: {}, stored activations: {}, currently'
                                    ''.format(config.env_name, counter,
-                                             ep_ori_rewards.mean(), ep_ori_rewards.max(), ep_ori_rewards.min()))
+                                             ep_ori_rewards.mean(), total_saved))
                 pb.update(1)
 
         for env in envs:
             env.close()
 
-        #TODO: clean up chunks as needed - e.g. saving the tail end of the data
+        #save the tail end of the data
+        for l in hooked_layers:
+            if sum(map(lambda x : torch.numel(x)*4, l.activations)) > 100:
+                save_chunk(l)
 
 
     return ep_ori_rewards, step, save_path
