@@ -197,10 +197,12 @@ def test_save(config, model, counter, test_episodes, device, render, save_video=
                 ep_clip_rewards[i] += clip_reward
 
             step += 1
-            total_saved = 0
-            for l in hooked_layers:
-                total_saved += sum(map(lambda x : torch.numel(x)*4, l.activations))
+
             if use_pb:
+                total_saved = 0
+                for l in hooked_layers:
+                    total_saved += sum(map(lambda x : torch.numel(x)*4, l.activations))
+                    
                 pb.set_description('{}, trial {}, mean score: {}, stored activations: {}, currently'
                                    ''.format(config.env_name, counter,
                                              ep_ori_rewards.mean(), total_saved))
