@@ -33,7 +33,6 @@ if __name__ == '__main__':
     parser.add_argument('--random_features', type=int, default=50, help='Number of random features to attribute (default: %(default)s)')
     parser.add_argument('--features', nargs='+', type=int, default=[], help='Specific features to attribute if possible')
     parser.add_argument('--feature_source', type=str, default='decoder', help='if untied weights, the feature should come from the decoder')
-    #TODO: make sure they actually got passed and used
 
     args = parser.parse_args()
     assert os.path.exists(args.model_path), 'model not found at {}'.format(args.model_path)
@@ -119,13 +118,17 @@ if __name__ == '__main__':
             #load state_dict
             sd = torch.load(p, map_location=torch.device(device))
 
-            #TODO:add conditional for feature_source
             ae_features[ae_name]['offset'] = sd['_post_decoder_bias._bias_reference']
             #get the desired features
-            #TODO: make compatible with convolutional layers
+            #TODO: test compatibility iwth convolutional layers
             for m in feature_nums:
                 if m < model.features(args.sae_layers[n]):
-                    ae_features[ae_name][m] = sd['_decoder._weight'][:,m]
+                    if args.feature_source == 'decoder':
+                        ae_features[ae_name][m] = sd['_decoder._weight'][:,m]
+                    elif args.feature_source == 'encoder':
+                        ae_features[ae_name][m] = sd['_encoder._weight'][:,m]
+                    else:
+                        raise ValueError('Pick encoder or decoder')
 
         else:
             #construct one-hot features at the index given by the feature numbers
@@ -135,8 +138,6 @@ if __name__ == '__main__':
                 ae_features[ae_name][m] = one_hot(model.features(args.sae_layers[n]), m, device)
 
 
-
-    #TODO: pass that dict of lists of vectors to test_write_trace, along with a list of keys
 
     #call test_write_trace to do the thing
     test_write_trace(game_config, model, args.test_episodes, device, autoencoders, ae_features, feature_nums, use_pb=True)
