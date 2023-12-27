@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_episodes', type=int, default=2, help='Evaluation episode count (default: %(default)s)')
     parser.add_argument('--model_path', type=str, default='./results/model.p', help='load model path')
     parser.add_argument('--sae_paths', nargs='+', type=str, default=['./results/sae.p'], help='load some autoencoder paths')
-    parser.add_argument('--sae_layers', nargs='+', type=str, default=['p6'], help='layers for the loaded autoencoders. Currently supported: p6')
+    parser.add_argument('--sae_layers', nargs='+', type=str, default=['p6'], help='layers for the loaded autoencoders. Currently recommended: p3, p6, q0, q3, q4, v3, v4')
     parser.add_argument('--results_path', type=str, default='./results/test_neurons', help='save clips directory')
     parser.add_argument('--device', type=str, default='cpu', help='cpu or cuda')
     parser.add_argument('--save_neurons', action='store_true', help='Flag: Attribute neurons if no autoencoder at file')
@@ -44,6 +44,7 @@ if __name__ == '__main__':
         else:
             assert os.path.exists(p), 'autoencoder not found at {}'.format(p)
     device = args.device
+    print(args)
 
     #set configs
     #implied_args = type('', (object,),{"env":"BreakoutNoFrameskip-v4", "case":"atari","opr":"test","amp_type":"torch_amp","render":False,"seed":0,"use_priority":False,"use_max_priority":False,"debug":False,"device":'cpu',"cpu_actor":4,"gpu_actor":4,"p_mcts_num":4,"use_root_value":False,"use_augmentation":False,"revisit_policy_search_rate":0.99,"result_dir":"./","info":"none"})()
@@ -117,7 +118,8 @@ if __name__ == '__main__':
         if os.path.exists(args.sae_paths[n]):
             #load state_dict
             sd = torch.load(p, map_location=torch.device(device))
-            
+
+            #TODO:add conditional for feature_source
             ae_features[ae_name]['offset'] = sd['_post_decoder_bias._bias_reference']
             #get the desired features
             #TODO: make compatible with convolutional layers
