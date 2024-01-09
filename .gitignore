@@ -13,3 +13,6 @@ __pycache__/
 /model
 /sae
 /proj
+/activations
+/val
+/pol

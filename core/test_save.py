@@ -49,17 +49,23 @@ def _test_save(config, shared_storage):
         time.sleep(30)
 
 class SaveFeatures():
-     activations=None
-     def __init__(self, layer, activations):
-         self.hook = layer.register_forward_hook(self.hook_fn)
-         self.activations = activations
-     def hook_fn(self, module, input, output): self.activations.append(output.detach().cpu())
-     def remove(self): self.hook.remove()
+    activations=None
+    def __init__(self, targ_lay):
+        if targ_lay.to_hook == 'input':
+            self.hook = targ_lay.layer.register_forward_hook(self.hook_in)
+        else:
+            self.hook = targ_lay.layer.register_forward_hook(self.hook_out)
+            
+        self.activations = targ_lay.activations
+    def hook_out(self, module, input, output): self.activations.append(output.detach().cpu())
+    def hook_in(self, module, input, output): self.activations.append(input[0].detach().cpu())
+    def remove(self): self.hook.remove()
 
 #attaches a target layer of the model and file folder to the saved activations
 class target_layer():
-    def __init__(self, layer, folder):
+    def __init__(self, layer, folder, to_hook='output'):
         self.layer = layer
+        self.to_hook = to_hook
         self.folder = folder
         #store activations as a list of pytorch tensors, then when it's big, save to disk and increment the chunk number
         self.activations = []
@@ -122,9 +128,15 @@ def test_save(config, model, counter, test_episodes, device, render, save_video=
         ep_ori_rewards = np.zeros(test_episodes)
         ep_clip_rewards = np.zeros(test_episodes)
 
-        #TODO: Initialize target_layers for all the layers we want to hook, remove test prints
+        #Initialize target_layers for all the layers we want to hook.
         hooked_layers = set()
         hooked_layers.add(target_layer(model.projection[6],"proj/6"))
+        hooked_layers.add(target_layer(model.projection[3],"proj/3"))
+        hooked_layers.add(target_layer(model.prediction_network.conv1x1_policy,"pol/0", to_hook='input'))
+        hooked_layers.add(target_layer(model.prediction_network.bn_policy,"pol/2"))
+        hooked_layers.add(target_layer(model.prediction_network.fc_policy,"pol/4", to_hook='input'))
+        hooked_layers.add(target_layer(model.prediction_network.bn_value,"val/2"))
+        hooked_layers.add(target_layer(model.prediction_network.fc_value,"val/4", to_hook='input'))
 
         # loop
         while not dones.all():
@@ -145,7 +157,7 @@ def test_save(config, model, counter, test_episodes, device, render, save_video=
             #Set hooks
             temp_hooks = set()
             for l in hooked_layers:
-                temp_hooks.add(SaveFeatures(l.layer, l.activations))
+                temp_hooks.add(SaveFeatures(l))
 
             #Call initial inference
             with autocast():
@@ -154,9 +166,9 @@ def test_save(config, model, counter, test_episodes, device, render, save_video=
             #Manually call projection network
             proj = model.project(torch.from_numpy(network_output.hidden_state).to(device), with_grad=False)
 
-            #Save chunks to disk if larger than desired chunk size (1 GB?) TODO: reset chunk size
+            #Save chunks to disk if larger than desired chunk size (100 MB)
             for l in hooked_layers:
-                if sum(map(lambda x : torch.numel(x)*4, l.activations)) > 10**6:
+                if sum(map(lambda x : torch.numel(x)*4, l.activations)) > 10**8:
                     save_chunk(l)
 
             #Remove hooks
