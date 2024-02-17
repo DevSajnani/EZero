@@ -642,7 +642,8 @@ class EfficientZeroNetH(BaseNet):
             for n in range(l+1):
                 x = self.projection[n](x)
             x = x - f_offset
-            x = torch.matmul(x,f_weight)
+            x = torch.matmul(x,f_weight[0])
+            x = x + f_weight[1]
             #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
             x = nn.functional.relu(x)
             return x
@@ -658,8 +659,8 @@ class EfficientZeroNetH(BaseNet):
         else:
             channels = 16
         temp_layer = nn.Conv2d(channels,1,kernel_size=1)
-        temp_layer.weight.data = f_weight.reshape(temp_layer.weight.size())
-        temp_layer.bias.data = -1*torch.matmul(f_offset,f_weight).reshape(temp_layer.bias.size())
+        temp_layer.weight.data = f_weight[0].reshape(temp_layer.weight.size())
+        temp_layer.bias.data = -1*torch.matmul(f_offset,f_weight[0]).reshape(temp_layer.bias.size())
         
         def heatmap_fun_q(x):
             x = nn.functional.relu(x)
@@ -670,6 +671,7 @@ class EfficientZeroNetH(BaseNet):
                 x = pred[n](x)
 
             x = temp_layer(x)
+            x = x + f_weight[1]
             #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
             x = nn.functional.relu(x)
             x = torch.sum(x, dim=[1,2,3])
@@ -691,7 +693,8 @@ class EfficientZeroNetH(BaseNet):
             x = x.view(-1, self.prediction_network.block_output_size_policy)
 
             x = x - f_offset
-            x = torch.matmul(x,f_weight)
+            x = torch.matmul(x,f_weight[0])
+            x = x + f_weight[1]
             #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
             x = nn.functional.relu(x)
             return x
@@ -707,8 +710,8 @@ class EfficientZeroNetH(BaseNet):
         else:
             channels = 16
         temp_layer = nn.Conv2d(channels,1,kernel_size=1)
-        temp_layer.weight.data = f_weight.reshape(temp_layer.weight.size())
-        temp_layer.bias.data = -1*torch.matmul(f_offset,f_weight).reshape(temp_layer.bias.size())
+        temp_layer.weight.data = f_weight[0].reshape(temp_layer.weight.size())
+        temp_layer.bias.data = -1*torch.matmul(f_offset,f_weight[0]).reshape(temp_layer.bias.size())
         
         def heatmap_fun_v(x):
             x = nn.functional.relu(x)
@@ -719,6 +722,7 @@ class EfficientZeroNetH(BaseNet):
                 x = val[n](x)
 
             x = temp_layer(x)
+            x = x + f_weight[1]
             #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
             x = nn.functional.relu(x)
             x = torch.sum(x, dim=[1,2,3])
@@ -740,7 +744,8 @@ class EfficientZeroNetH(BaseNet):
             x = x.view(-1, self.prediction_network.block_output_size_value)
 
             x = x - f_offset
-            x = torch.matmul(x,f_weight)
+            x = torch.matmul(x,f_weight[0])
+            x = x + f_weight[1]
             #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
             x = nn.functional.relu(x)
             return x

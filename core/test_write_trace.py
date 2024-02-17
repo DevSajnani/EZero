@@ -72,8 +72,7 @@ def test_write_trace(config, model, test_episodes, device, ae_names, ae_features
         for a in ae_names:
             trace[a]={}
             for m in feature_nums:
-                #a[0:2] is the layer code
-                if m < model.features(a[0:2]):
+                if m in ae_features[a].keys():
                     trace[a][m]=[]
         
         step = 0
@@ -107,7 +106,7 @@ def test_write_trace(config, model, test_episodes, device, ae_names, ae_features
             os.makedirs(config.exp_path, exist_ok = True)
             for a in ae_names:
                 for m in feature_nums:
-                    if m < model.features(a[0:2]):
+                    if m in ae_features[a].keys():
                         val, heatmap = model.heatmap(a[0:2],ae_features[a]['offset'],ae_features[a][m])
                         trace[a][m].append(val)
 
@@ -172,7 +171,7 @@ def test_write_trace(config, model, test_episodes, device, ae_names, ae_features
         os.makedirs(os.path.join(parent_dir, a), exist_ok = True)
 
         for m in feature_nums:
-            if m < model.features(a[0:2]):
+            if m in ae_features[a].keys():
                 if use_pb:
                     pb.set_description(f'{config.env_name} Writing video for encoder ' + a + f', feature {m} ')
                     pb.update(1)

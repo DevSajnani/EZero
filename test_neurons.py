@@ -23,16 +23,16 @@ if __name__ == '__main__':
     #gather arguments related to testing:
     parser = argparse.ArgumentParser(description='EfficientZero')
     parser.add_argument('--env', required=True, help='Name of the gym environment')
-    parser.add_argument('--test_episodes', type=int, default=2, help='Evaluation episode count (default: %(default)s)')
+    parser.add_argument('--test_episodes', type=int, default=1, help='Evaluation episode count (default: %(default)s)')
     parser.add_argument('--model_path', type=str, default='./results/model.p', help='load model path')
     parser.add_argument('--sae_paths', nargs='+', type=str, default=['./results/sae.p'], help='load some autoencoder paths')
     parser.add_argument('--sae_layers', nargs='+', type=str, default=['p6'], help='layers for the loaded autoencoders. Currently recommended: p3, p6, q0, q3, q4, v3, v4')
     parser.add_argument('--results_path', type=str, default='./results/test_neurons', help='save clips directory')
     parser.add_argument('--device', type=str, default='cpu', help='cpu or cuda')
     parser.add_argument('--save_neurons', action='store_true', help='Flag: Attribute neurons if no autoencoder at file')
-    parser.add_argument('--random_features', type=int, default=50, help='Number of random features to attribute (default: %(default)s)')
+    parser.add_argument('--random_features', type=int, default=0, help='Number of random features to attribute (default: %(default)s)')
     parser.add_argument('--features', nargs='+', type=int, default=[], help='Specific features to attribute if possible')
-    parser.add_argument('--feature_source', type=str, default='decoder', help='if untied weights, the feature should come from the decoder')
+    parser.add_argument('--feature_source', type=str, default='encoder', help='pick encoder or decoder - only different if weights are untied')
 
     args = parser.parse_args()
     assert os.path.exists(args.model_path), 'model not found at {}'.format(args.model_path)
@@ -122,21 +122,20 @@ if __name__ == '__main__':
             #get the desired features
             #TODO: test compatibility iwth convolutional layers
             for m in feature_nums:
-                if m < model.features(args.sae_layers[n]):
+                if m < sd['_encoder._weight'].size()[0]:
                     if args.feature_source == 'decoder':
-                        ae_features[ae_name][m] = sd['_decoder._weight'][:,m]
+                        ae_features[ae_name][m] = (sd['_decoder._weight'][:,m], 0)
                     elif args.feature_source == 'encoder':
-                        ae_features[ae_name][m] = sd['_encoder._weight'][:,m]
+                        ae_features[ae_name][m] = (sd['_encoder._weight'][m,:], sd['_encoder._bias'][m])
                     else:
                         raise ValueError('Pick encoder or decoder')
 
         else:
             #construct one-hot features at the index given by the feature numbers
-            #TODO: make compatible with convolutional layers
+            #TODO: check compatibility with convolutional layers
             ae_features[ae_name]['offset'] = torch.zeros(model.features(args.sae_layers[n])).to(device)
             for m in feature_nums:
-                ae_features[ae_name][m] = one_hot(model.features(args.sae_layers[n]), m, device)
-
+                ae_features[ae_name][m] = (one_hot(model.features(args.sae_layers[n]), m, device),0)
 
 
     #call test_write_trace to do the thing
