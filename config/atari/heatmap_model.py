@@ -597,31 +597,24 @@ class EfficientZeroNetH(BaseNet):
         else:
             return proj.detach()
 
-    #TODO: make this use the feature. specialize different heatmap functions - can at least use do the different projection layers in one function.
-    #TODO: currently broken for batch size dimension 0. Make it work.
-    def get_heatmap_fun_p(self, f_offset, f_weight, l):
-        #define a function just made out of the things we want to heatmap
-        #i.e. starting at the last neurons of the representation net, though the projection network, and ending with a dot product with the feature
-        
-        def heatmap_fun_p(x):
-            x = nn.functional.relu(x)
-            x = x.view(-1, self.projection_in_dim)
-            for n in range(l+1):
-                x = self.projection[n](x)
-            x = x - f_offset
-            x = torch.matmul(x,f_weight)
-            #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
-            x = torch.nn.ReLU()(x)
-            return x
-
-        return heatmap_fun_p
-
     def heatmap(self, layer, f_offset, f_weight):
+        #switch between diffferent functions depending on target network
+        #'p' is projection network
+        #'q' is the convolutional prt of the policy network.
+            #for prediction network, q0 is the shared prediction/value residual block, q1 is after the conv1x1, q2 and q3 after BN and ReLU, and q4 is the non-convolutional final output
+        #'v' is the convolutional part of the value network
+            #for value network, v0 is the shared prediction/value residual block, v1 is after the conv1x1, v2 and v3 after BN and ReLU, and q4 is the non-convolutional final output
+        #'d' is dynamics network (TODO, might take the easy way out and assume input is fixed)
         if layer[0]=='p':
-            return self.heatmap_p(f_offset, f_weight, int(layer[1]))
-    
-    def heatmap_p(self, f_offset, f_weight, p_layer):
-        heatmap_fun = self.get_heatmap_fun_p(f_offset, f_weight, p_layer)
+            heatmap_fun = self.get_heatmap_fun_p(f_offset, f_weight, int(layer[1]))
+        elif layer[0]=='q' and 0<=int(layer[1])<=3:
+            heatmap_fun = self.get_heatmap_fun_q(f_offset, f_weight, int(layer[1]))
+        elif layer[0]=='q' and int(layer[1])==4:
+            heatmap_fun = self.get_heatmap_fun_q4(f_offset, f_weight)
+        elif layer[0]=='v' and 0<=int(layer[1])<=3:
+            heatmap_fun = self.get_heatmap_fun_v(f_offset, f_weight, int(layer[1]))
+        elif layer[0]=='v' and int(layer[1])==4:
+            heatmap_fun = self.get_heatmap_fun_v4(f_offset, f_weight)
 
         #self.representation_network.tomap is of size (test_episodes, 64 channels, 6 x, 6 y)
         #val ends up as a np array of length test_episodes
@@ -639,10 +632,136 @@ class EfficientZeroNetH(BaseNet):
 
         return val, hmap
 
-    #TODO: start implementing heatmaps of different layers
+    def get_heatmap_fun_p(self, f_offset, f_weight, l):
+        #define a function just made out of the things we want to heatmap
+        #i.e. starting at the last neurons of the representation net, though the projection network, and ending with a dot product with the feature
+        
+        def heatmap_fun_p(x):
+            x = nn.functional.relu(x)
+            x = x.view(-1, self.projection_in_dim)
+            for n in range(l+1):
+                x = self.projection[n](x)
+            x = x - f_offset
+            x = torch.matmul(x,f_weight[0])
+            x = x + f_weight[1]
+            #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
+            x = nn.functional.relu(x)
+            return x
+
+        return heatmap_fun_p
+    
+    #For convolutional layers, "features" are convolutional filters. The heatmap function applies the filter all over, and then adds up the actiavtion.
+    def get_heatmap_fun_q(self, f_offset, f_weight, l):
+        #expect the offset and weight to be of shape (channels), not (channels, 1, 1)
+        #form a conv2d layer with weights from f_weight and bias of f_offset*fweight
+        if l==0:
+            channels = 64
+        else:
+            channels = 16
+        temp_layer = nn.Conv2d(channels,1,kernel_size=1)
+        temp_layer.weight.data = f_weight[0].reshape(temp_layer.weight.size())
+        temp_layer.bias.data = -1*torch.matmul(f_offset,f_weight[0]).reshape(temp_layer.bias.size())
+        
+        def heatmap_fun_q(x):
+            x = nn.functional.relu(x)
+            for block in self.prediction_network.resblocks:
+                x = block(x)
+            pred = [self.prediction_network.conv1x1_policy, self.prediction_network.bn_policy, nn.functional.relu]
+            for n in range(l):
+                x = pred[n](x)
+
+            x = temp_layer(x)
+            x = x + f_weight[1]
+            #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
+            x = nn.functional.relu(x)
+            x = torch.sum(x, dim=[1,2,3])
+            return x
+
+        return heatmap_fun_q
+    
+
+    def get_heatmap_fun_q4(self, f_offset, f_weight):
+    #expect the inputs to be of size 576 (i.e. treating the activations linarly)
+        
+        def heatmap_fun_q4(x):
+            x = nn.functional.relu(x)
+            for block in self.prediction_network.resblocks:
+                x = block(x)
+            x = self.prediction_network.conv1x1_policy(x)
+            x = self.prediction_network.bn_policy(x)
+            x = nn.functional.relu(x)
+            x = x.view(-1, self.prediction_network.block_output_size_policy)
+
+            x = x - f_offset
+            x = torch.matmul(x,f_weight[0])
+            x = x + f_weight[1]
+            #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
+            x = nn.functional.relu(x)
+            return x
+
+        return heatmap_fun_q4
+
+    #For convolutional layers, "features" are convolutional filters. The heatmap function applies the filter all over, and then adds up the actiavtion.
+    def get_heatmap_fun_v(self, f_offset, f_weight, l):
+        #expect the offset and weight to be of shape (channels), not (channels, 1, 1)
+        #form a conv2d layer with weights from f_weight and bias of f_offset*fweight
+        if l==0:
+            channels = 64
+        else:
+            channels = 16
+        temp_layer = nn.Conv2d(channels,1,kernel_size=1)
+        temp_layer.weight.data = f_weight[0].reshape(temp_layer.weight.size())
+        temp_layer.bias.data = -1*torch.matmul(f_offset,f_weight[0]).reshape(temp_layer.bias.size())
+        
+        def heatmap_fun_v(x):
+            x = nn.functional.relu(x)
+            for block in self.prediction_network.resblocks:
+                x = block(x)
+            val = [self.prediction_network.conv1x1_value, self.prediction_network.bn_value, nn.functional.relu]
+            for n in range(l):
+                x = val[n](x)
+
+            x = temp_layer(x)
+            x = x + f_weight[1]
+            #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
+            x = nn.functional.relu(x)
+            x = torch.sum(x, dim=[1,2,3])
+            return x
+
+        return heatmap_fun_v
+    
+
+    def get_heatmap_fun_v4(self, f_offset, f_weight):
+    #expect the inputs to be of size 576 (i.e. treating the activations linarly)
+        
+        def heatmap_fun_v4(x):
+            x = nn.functional.relu(x)
+            for block in self.prediction_network.resblocks:
+                x = block(x)
+            x = self.prediction_network.conv1x1_value(x)
+            x = self.prediction_network.bn_value(x)
+            x = nn.functional.relu(x)
+            x = x.view(-1, self.prediction_network.block_output_size_value)
+
+            x = x - f_offset
+            x = torch.matmul(x,f_weight[0])
+            x = x + f_weight[1]
+            #ReLU to reduce cross-talk with other features, at the cost of throwing away information when the feature is absent
+            x = nn.functional.relu(x)
+            return x
+
+        return heatmap_fun_v4
+    
 
     def features(self, layer):
-        if layer=='p6':
+        #TODO: figure out number of features for d
+        if layer[0]=='p' and 0<=int(layer[1])<=7:
             return 1024
+        if (layer[0]=='q' or layer[0]=='v') and int(layer[1])==0:
+            return 64
+        if (layer[0]=='q' or layer[0]=='v') and 1<=int(layer[1])<=3:
+            return 16
+        if (layer[0]=='q' or layer[0]=='v') and int(layer[1])==4:
+            return 576
         else:
             raise ValueError('Invalid layer code')
