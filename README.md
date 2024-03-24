@@ -3,6 +3,12 @@ Work done as part of the Fall 2023 iteration of the Supervised Program for Align
 
 ## Environments
 We recommend using a linux distribution and ``conda`` for managing packages. 
+First install libgl1-mesa-glx using ```sudo apt-get install libgl1-mesa-glx``` 
+and check if the `libGL.so.1` file exists using 
+```find /usr -name "libGL.so.1"```
+After that use pip to install requirements from ``requirements.txt`` and build external cython packages using 
+```cd EZero/core/ctree
+bash make.sh```
 
 ### Prerequisites
 Before starting training, you need to build the c++/cython style external packages. (GCC version 7.5+ is required.)
