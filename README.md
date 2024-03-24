@@ -2,9 +2,7 @@ Code base for training SAEs on the EfficientZero RL model.
 Work done as part of the Fall 2023 iteration of the Supervised Program for Alignment Research (SPAR)
 
 ## Environments
-EfficientZero requires python3 (>=3.6) and pytorch (>=1.8.0) with the development headers. 
-
-We recommend to use torch amp (`--amp_type torch_amp`) to accelerate training.
+We recommend using a linux distribution and ``conda`` for managing packages. 
 
 ### Prerequisites
 Before starting training, you need to build the c++/cython style external packages. (GCC version 7.5+ is required.)
@@ -50,9 +48,11 @@ We provide `train.sh` and `test.sh` for training and evaluation.
 | `--use_root_value`                  |use root values in value targets (require more GPU actors)
 | `--render`                          |render in evaluation
 | `--save_video`                      |save videos for evaluation
- 
-## Citation
-If you find this repo useful, please cite our paper:
+
+## Contact
+If you have any question or want to use the code, please contact sajnanidev@berkeley.edu
+
+## Acknowledgement
 ```
 @inproceedings{ye2021mastering,
   title={Mastering Atari Games with Limited Data},
@@ -61,15 +61,3 @@ If you find this repo useful, please cite our paper:
   year={2021}
 }
 ```
-
-## Contact
-If you have any question or want to use the code, please contact ywr20@mails.tsinghua.edu.cn .
-
-## Acknowledgement
-We appreciate the following github repos a lot for their valuable code base implementations:
-
-https://github.com/koulanurag/muzero-pytorch
-
-https://github.com/werner-duvaud/muzero-general
-
-https://github.com/pytorch/ELF
