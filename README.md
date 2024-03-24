@@ -1,34 +1,20 @@
 Code base for training SAEs on the EfficientZero RL model. 
-Work done as part of the Fall 2023 iteration of the Supervised Program for Alignment Research (SPAR)
+Work done as part of the Fall 2023 iteration of the Supervised Program for Alignment Research (SPAR). 
 
-## Environments
-We recommend using a linux distribution and ``conda`` for managing packages. 
-First install libgl1-mesa-glx using ```sudo apt-get install libgl1-mesa-glx``` 
-and check if the `libGL.so.1` file exists using 
-```find /usr -name "libGL.so.1"```
+## Environment
+We recommend using a linux distribution and ``conda`` for managing packages.  <br />
+First install libgl1-mesa-glx using ```sudo apt-get install libgl1-mesa-glx```  and check if the `libGL.so.1` file exists using  ```find /usr -name "libGL.so.1"```
+<br />
 After that use pip to install requirements from ``requirements.txt`` and build external cython packages using 
-```cd EZero/core/ctree
-bash make.sh```
-
-### Prerequisites
-Before starting training, you need to build the c++/cython style external packages. (GCC version 7.5+ is required.)
 ```
-cd core/ctree
+cd EZero/core/ctree
 bash make.sh
-``` 
-
-### Installation
-As for other packages required for this codebase, please run `pip install -r requirements.txt`.
+```
 
 ## Usage
-### Quick start
-* Train: `python main.py --env BreakoutNoFrameskip-v4 --case atari --opr train --amp_type torch_amp --num_gpus 1 --num_cpus 10 --cpu_actor 1 --gpu_actor 1 --force`
+To run the original EfficientZero model ``cd EZero`` and <br />
+* Train: `python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr train --amp_type torch_amp --num_gpus 1 --num_cpus 10 --cpu_actor 1 --gpu_actor 1 --force`
 * Test: `python main.py --env BreakoutNoFrameskip-v4 --case atari --opr test --amp_type torch_amp --num_gpus 1 --load_model --model_path model.p \`
-### Bash file
-We provide `train.sh` and `test.sh` for training and evaluation.
-* Train: 
-  * With 4 GPUs (3090): `bash train.sh`
-* Test: `bash test.sh`
 
 |Required Arguments | Description|
 |:-------------|:-------------|
