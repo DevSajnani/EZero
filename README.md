@@ -1,4 +1,5 @@
-Code base for training SAEs on the EfficientZero RL model. 
+Code base for training SAEs on the EfficientZero RL model. The code has been modified to maintain compatibility with sparse autoencoders.  <br />
+This repo is still under construction 
 
 ## Environment
 We recommend using a linux distribution and ``conda`` for managing packages.  <br />
@@ -13,14 +14,13 @@ Some users might face an error regarding the installation of ROMs when running t
 ```
 AutoROM --accept-license --install-dir {CONDAEnv}/lib/{PYTHON}/site-packages/atari_py/atari_roms
 ```
-For this codebase however, we've only trained and analyzed sparse autoencoders on Ms Pacman
 
 ## EfficientZero Usage
 To run the original EfficientZero model ``cd EZero`` and <br />
 * Train: `python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr train --amp_type torch_amp --num_gpus 1 --num_cpus 4 --cpu_actor 1 --gpu_actor 1 --force`
 * Test: `python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr test --amp_type torch_amp --num_gpus 1 --load_model --model_path model/model.p ` 
 
-The `model.p` file under `EZero/model` has good performance so users do not need to train their own each time.  
+The `model.p` file located under `EZero/model` directory offers good performance, eliminating the need for users to train their own model each time. Users also require GPUs for training new models or sparse autoencoders, which we provide a few of. We refer users to the original EfficientZero repo (linked under acknowledgements) for more specific advice in the absence of GPUs. 
 
 |Required Arguments | Description|
 |:-------------|:-------------|
@@ -49,7 +49,7 @@ The `model.p` file under `EZero/model` has good performance so users do not need
 
 
 ## Sparse Autoencoder Usage
-
+We've only trained and analyzed sparse autoencoders on Ms Pacman, but we welcome users to try training their own sparse autoencoders 
 
 ## Contact
 If you have any questions please contact sajnanidev@berkeley.edu
