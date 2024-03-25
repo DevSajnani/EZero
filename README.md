@@ -1,5 +1,4 @@
 Code base for training SAEs on the EfficientZero RL model. 
-Work done as part of the Fall 2023 iteration of the Supervised Program for Alignment Research (SPAR). 
 
 ## Environment
 We recommend using a linux distribution and ``conda`` for managing packages.  <br />
@@ -10,11 +9,18 @@ After that use pip to install requirements from ``requirements.txt`` and build e
 cd EZero/core/ctree
 bash make.sh
 ```
+Some users might face an error regarding the installation of ROMs when running the original EZero code to train/test an agent, in which case we recommend manually installing them using 
+```
+AutoROM --accept-license --install-dir {CONDAEnv}/lib/{PYTHON}/site-packages/atari_py/atari_roms
+```
+For this codebase however, we've only trained and analyzed sparse autoencoders on Ms Pacman
 
-## Usage
+## EfficientZero Usage
 To run the original EfficientZero model ``cd EZero`` and <br />
-* Train: `python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr train --amp_type torch_amp --num_gpus 1 --num_cpus 10 --cpu_actor 1 --gpu_actor 1 --force`
-* Test: `python main.py --env BreakoutNoFrameskip-v4 --case atari --opr test --amp_type torch_amp --num_gpus 1 --load_model --model_path model.p \`
+* Train: `python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr train --amp_type torch_amp --num_gpus 1 --num_cpus 4 --cpu_actor 1 --gpu_actor 1 --force`
+* Test: `python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr test --amp_type torch_amp --num_gpus 1 --load_model --model_path model/model.p ` 
+
+The `model.p` file under `EZero/model` has good performance so users do not need to train their own each time.  
 
 |Required Arguments | Description|
 |:-------------|:-------------|
@@ -41,15 +47,23 @@ To run the original EfficientZero model ``cd EZero`` and <br />
 | `--render`                          |render in evaluation
 | `--save_video`                      |save videos for evaluation
 
+
+## Sparse Autoencoder Usage
+
+
 ## Contact
-If you have any question or want to use the code, please contact sajnanidev@berkeley.edu
+If you have any questions please contact sajnanidev@berkeley.edu
 
 ## Acknowledgement
+
 ```
 @inproceedings{ye2021mastering,
   title={Mastering Atari Games with Limited Data},
   author={Weirui Ye, and Shaohuai Liu, and Thanard Kurutach, and Pieter Abbeel, and Yang Gao},
   booktitle={NeurIPS},
   year={2021}
-}
+} 
 ```
+[Mastering Atari Games with Limited Data Codebase](https://github.com/YeWR/EfficientZero) <br />
+[AI-Safety-Foundation Sparse Autoencoder library](https://github.com/ai-safety-foundation/sparse_autoencoder)
+
