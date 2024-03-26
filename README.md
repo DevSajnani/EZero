@@ -1,4 +1,4 @@
-Code base for training SAEs on the EfficientZero RL model. The code has been modified to maintain compatibility with sparse autoencoders.  <br />
+Code base for training sparse autoencoders on the EfficientZero RL model. The code has been modified to maintain compatibility with SAEs.  <br />
 This repo is still under construction 
 
 ## Environment
@@ -20,7 +20,7 @@ To run the original EfficientZero model ``cd EZero`` and <br />
 * Train: `python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr train --amp_type torch_amp --num_gpus 1 --num_cpus 4 --cpu_actor 1 --gpu_actor 1 --force`
 * Test: `python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr test --amp_type torch_amp --num_gpus 1 --load_model --model_path model/model.p ` 
 
-The `model.p` file located under `EZero/model` directory offers good performance, eliminating the need for users to train their own model each time. Users also require GPUs for training new models or sparse autoencoders, which we provide a few of. We refer users to the original EfficientZero repo (linked under acknowledgements) for more specific advice in the absence of GPUs. 
+The `model.p` file located under `EZero/model` directory offers good performance, eliminating the need for users to train their own model each time. Users also require GPUs for training new models or sparse autoencoders, but we provide a few of those. We refer users to the original EfficientZero repo (linked under acknowledgements) for more specific advice in the absence of GPUs. 
 
 |Required Arguments | Description|
 |:-------------|:-------------|
@@ -49,7 +49,40 @@ The `model.p` file located under `EZero/model` directory offers good performance
 
 
 ## Sparse Autoencoder Usage
-We've only trained and analyzed sparse autoencoders on Ms Pacman, but we welcome users to try training their own sparse autoencoders 
+We've only trained and analyzed SAEs on Ms Pacman, but we welcome users to try training some on other environments. Additionally, our SAEs are trained for the final layer of the projection network however this section outlines how SAEs for other layers can be trained. 
+
+### Saving model activations 
+To save activations from the final layer for the projection head just add the `--save_activations` argument to test command.
+```
+cd EZero
+python main.py --env MsPacmanNoFrameskip-v4 --case atari --opr test --amp_type torch_amp --num_gpus 1 --load_model --model_path model/model.p --save_activations
+```
+
+### Training SAEs
+
+
+### Feature Visualization using SAEs 
+```
+cd EZero
+python test_neurons.py --env MsPacmanNoFrameskip-v4 --model_path ./model/model.p --sae_paths ./sae/test_sae.p ./sae/test_sae2.p ./sae/test_sae3.p --sae_layers p6 p6 p6 --features 1 5 42 --random_features 2
+```
+
+|Required Arguments | Description|
+|:-------------|:-------------|
+| `--env`                             |Name of the gym environment|
+
+|Other Arguments | Description|
+|:-------------|:-------------|
+| `--model_path`                           |Path to model
+| `--sae_paths`                            |Path to SAE
+| `--sae_layers`                           |Layer visualized by the SAE
+| `--save_neurons`                         |Neuron attribution if no SAE
+| `--device`                               |CPU or Cuda
+| `--features`                             |Specific features to attribute
+| `--random_features`                      |Number of random features to attribute
+| `--feature_source`                       |Encoder or Decoder
+
+In the sample command, three SAEs are used to visualize features from the projection layer 6. The specific features being visualized are 1, 5, and 42, with 2 additional random features being visualized. 
 
 ## Contact
 If you have any questions please contact sajnanidev@berkeley.edu
